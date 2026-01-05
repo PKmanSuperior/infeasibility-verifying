@@ -1,7 +1,7 @@
 ============================== Mace4 =================================
 Mace4 (64) version 2009-11A, November 2009.
-Process 1238 was started by takizawa on DESKTOP-L5LN107,
-Mon Aug  4 23:32:56 2025
+Process 1073 was started by takizawa on DESKTOP-L5LN107,
+Mon Dec  1 21:09:07 2025
 The command was "./mace4 -f mace.in".
 ============================== end of head ===========================
 
@@ -9,13 +9,29 @@ The command was "./mace4 -f mace.in".
 
 % Reading from file mace.in
 
-assign(max_seconds,10).
+assign(max_seconds,2).
 
 formulas(theory).
-(all x f(e,x) = x).
-(all x f(g(x),x) = e).
-(all x all y all z f(x,f(y,z)) = f(f(x,y),z)).
-f(a,b) != f(b,a).
+(all x Q(x,x)).
+(all y all x all z (P(x,y) & Q(y,z) -> Q(x,z))).
+(all x all y all x_2 (P(x,y) -> P(add(x,x_2),add(y,x_2)))).
+(all x all x_1 all y (P(x,y) -> P(add(x_1,x),add(x_1,y)))).
+(all x all y all x_2 (P(x,y) -> P(gcd(x,x_2),gcd(y,x_2)))).
+(all x all x_1 all y (P(x,y) -> P(gcd(x_1,x),gcd(x_1,y)))).
+(all x all y (P(x,y) -> P(iadd(x),iadd(y)))).
+(all x all y (P(x,y) -> P(s(x),s(y)))).
+(all x all y all x_2 (P(x,y) -> P(tp2(x,x_2),tp2(y,x_2)))).
+(all x all x_1 all y (P(x,y) -> P(tp2(x_1,x),tp2(x_1,y)))).
+(all x all y (P(x,y) -> P(u1(x),u1(y)))).
+(all x_1 all x_2 all x_3 (Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_1,x_3),gcd(x_2,x_3)))).
+(all x_1 all x_2 all x_3 (Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_3,x_1),gcd(x_2,x_3)))).
+(all x_1 P(gcd(x_1,$0),x_1)).
+(all x_1 P(gcd($0,x_1),x_1)).
+(all x_1 P(iadd(x_1),tp2($0,x_1))).
+(all x_1 P(iadd(s(x_1)),u1(iadd(x_1)))).
+(all x_1 all x_2 P(u1(tp2(x_1,x_2)),tp2(s(x_1),x_2))).
+(all x_1 all x_2 P(iadd(add(x_1,x_2)),tp2(x_1,x_2))).
+(all x_1 all x_2 all x_3 all x_4 -(Q(iadd(x_4),tp2(x_1,x_2)) & Q(iadd(x_2),tp2(x_3,x_4)))).
 end_of_list.
 
 ============================== end of input ==========================
@@ -23,19 +39,52 @@ end_of_list.
 ============================== PROCESS NON-CLAUSAL FORMULAS ==========
 
 % Formulas that are not ordinary clauses:
-1 (all x f(e,x) = x) # label(non_clause).  [assumption].
-2 (all x f(g(x),x) = e) # label(non_clause).  [assumption].
-3 (all x all y all z f(x,f(y,z)) = f(f(x,y),z)) # label(non_clause).  [assumption].
+1 (all x Q(x,x)) # label(non_clause).  [assumption].
+2 (all y all x all z (P(x,y) & Q(y,z) -> Q(x,z))) # label(non_clause).  [assumption].
+3 (all x all y all x_2 (P(x,y) -> P(add(x,x_2),add(y,x_2)))) # label(non_clause).  [assumption].
+4 (all x all x_1 all y (P(x,y) -> P(add(x_1,x),add(x_1,y)))) # label(non_clause).  [assumption].
+5 (all x all y all x_2 (P(x,y) -> P(gcd(x,x_2),gcd(y,x_2)))) # label(non_clause).  [assumption].
+6 (all x all x_1 all y (P(x,y) -> P(gcd(x_1,x),gcd(x_1,y)))) # label(non_clause).  [assumption].
+7 (all x all y (P(x,y) -> P(iadd(x),iadd(y)))) # label(non_clause).  [assumption].
+8 (all x all y (P(x,y) -> P(s(x),s(y)))) # label(non_clause).  [assumption].
+9 (all x all y all x_2 (P(x,y) -> P(tp2(x,x_2),tp2(y,x_2)))) # label(non_clause).  [assumption].
+10 (all x all x_1 all y (P(x,y) -> P(tp2(x_1,x),tp2(x_1,y)))) # label(non_clause).  [assumption].
+11 (all x all y (P(x,y) -> P(u1(x),u1(y)))) # label(non_clause).  [assumption].
+12 (all x_1 all x_2 all x_3 (Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_1,x_3),gcd(x_2,x_3)))) # label(non_clause).  [assumption].
+13 (all x_1 all x_2 all x_3 (Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_3,x_1),gcd(x_2,x_3)))) # label(non_clause).  [assumption].
+14 (all x_1 P(gcd(x_1,$0),x_1)) # label(non_clause).  [assumption].
+15 (all x_1 P(gcd($0,x_1),x_1)) # label(non_clause).  [assumption].
+16 (all x_1 P(iadd(x_1),tp2($0,x_1))) # label(non_clause).  [assumption].
+17 (all x_1 P(iadd(s(x_1)),u1(iadd(x_1)))) # label(non_clause).  [assumption].
+18 (all x_1 all x_2 P(u1(tp2(x_1,x_2)),tp2(s(x_1),x_2))) # label(non_clause).  [assumption].
+19 (all x_1 all x_2 P(iadd(add(x_1,x_2)),tp2(x_1,x_2))) # label(non_clause).  [assumption].
+20 (all x_1 all x_2 all x_3 all x_4 -(Q(iadd(x_4),tp2(x_1,x_2)) & Q(iadd(x_2),tp2(x_3,x_4)))) # label(non_clause).  [assumption].
 
 ============================== end of process non-clausal formulas ===
 
 ============================== CLAUSES FOR SEARCH ====================
 
 formulas(mace4_clauses).
-f(e,x) = x.
-f(g(x),x) = e.
-f(f(x,y),z) = f(x,f(y,z)).
-f(a,b) != f(b,a).
+Q(x,x).
+-P(x,y) | -Q(y,z) | Q(x,z).
+-P(x,y) | P(add(x,z),add(y,z)).
+-P(x,y) | P(add(z,x),add(z,y)).
+-P(x,y) | P(gcd(x,z),gcd(y,z)).
+-P(x,y) | P(gcd(z,x),gcd(z,y)).
+-P(x,y) | P(iadd(x),iadd(y)).
+-P(x,y) | P(s(x),s(y)).
+-P(x,y) | P(tp2(x,z),tp2(y,z)).
+-P(x,y) | P(tp2(z,x),tp2(z,y)).
+-P(x,y) | P(u1(x),u1(y)).
+-Q(iadd(x),tp2(y,z)) | P(gcd(x,z),gcd(y,z)).
+-Q(iadd(x),tp2(y,z)) | P(gcd(z,x),gcd(y,z)).
+P(gcd(x,$0),x).
+P(gcd($0,x),x).
+P(iadd(x),tp2($0,x)).
+P(iadd(s(x)),u1(iadd(x))).
+P(u1(tp2(x,y)),tp2(s(x),y)).
+P(iadd(add(x,y)),tp2(x,y)).
+-Q(iadd(x),tp2(y,z)) | -Q(iadd(z),tp2(u,x)).
 end_of_list.
 
 ============================== end of clauses for search =============
@@ -48,11 +97,11 @@ end_of_list.
 
 For domain size 2.
 
-Current CPU time: 0.00 seconds (total CPU time: 0.00 seconds).
-Ground clauses: seen=13, kept=13.
-Selections=4, assignments=7, propagations=16, current_models=0.
-Rewrite_terms=79, rewrite_bools=13, indexes=23.
-Rules_from_neg_clauses=5, cross_offs=5.
+Current CPU time: 0.00 seconds (total CPU time: 0.01 seconds).
+Ground clauses: seen=118, kept=114.
+Selections=2, assignments=3, propagations=8, current_models=0.
+Rewrite_terms=106, rewrite_bools=16, indexes=24.
+Rules_from_neg_clauses=2, cross_offs=2.
 
 ============================== end of statistics =====================
 
@@ -62,11 +111,11 @@ Rules_from_neg_clauses=5, cross_offs=5.
 
 For domain size 3.
 
-Current CPU time: 0.00 seconds (total CPU time: 0.00 seconds).
-Ground clauses: seen=34, kept=34.
-Selections=9, assignments=23, propagations=47, current_models=0.
-Rewrite_terms=387, rewrite_bools=75, indexes=104.
-Rules_from_neg_clauses=9, cross_offs=39.
+Current CPU time: 0.00 seconds (total CPU time: 0.01 seconds).
+Ground clauses: seen=384, kept=375.
+Selections=4, assignments=8, propagations=11, current_models=0.
+Rewrite_terms=313, rewrite_bools=43, indexes=42.
+Rules_from_neg_clauses=0, cross_offs=6.
 
 ============================== end of statistics =====================
 
@@ -76,11 +125,11 @@ Rules_from_neg_clauses=9, cross_offs=39.
 
 For domain size 4.
 
-Current CPU time: 0.00 seconds (total CPU time: 0.00 seconds).
-Ground clauses: seen=73, kept=73.
-Selections=18, assignments=61, propagations=172, current_models=0.
-Rewrite_terms=1507, rewrite_bools=269, indexes=369.
-Rules_from_neg_clauses=21, cross_offs=151.
+Current CPU time: 0.00 seconds (total CPU time: 0.01 seconds).
+Ground clauses: seen=932, kept=916.
+Selections=4, assignments=8, propagations=12, current_models=0.
+Rewrite_terms=582, rewrite_bools=60, indexes=51.
+Rules_from_neg_clauses=0, cross_offs=8.
 
 ============================== end of statistics =====================
 
@@ -90,54 +139,158 @@ Rules_from_neg_clauses=21, cross_offs=151.
 
 For domain size 5.
 
-Current CPU time: 0.00 seconds (total CPU time: 0.00 seconds).
-Ground clauses: seen=136, kept=136.
-Selections=30, assignments=122, propagations=385, current_models=0.
-Rewrite_terms=3799, rewrite_bools=650, indexes=1031.
-Rules_from_neg_clauses=47, cross_offs=429.
+Current CPU time: 0.00 seconds (total CPU time: 0.02 seconds).
+Ground clauses: seen=1900, kept=1875.
+Selections=4, assignments=8, propagations=13, current_models=0.
+Rewrite_terms=975, rewrite_bools=77, indexes=60.
+Rules_from_neg_clauses=0, cross_offs=10.
 
 ============================== end of statistics =====================
 
 ============================== DOMAIN SIZE 6 =========================
 
-============================== MODEL =================================
-
-interpretation( 6, [number=1, seconds=0], [
-
-        function(a, [ 0 ]),
-
-        function(b, [ 1 ]),
-
-        function(e, [ 2 ]),
-
-        function(g(_), [ 0, 1, 2, 4, 3, 5 ]),
-
-        function(f(_,_), [
-			   2, 3, 0, 1, 5, 4,
-			   4, 2, 1, 5, 0, 3,
-			   0, 1, 2, 3, 4, 5,
-			   5, 0, 3, 4, 2, 1,
-			   1, 5, 4, 2, 3, 0,
-			   3, 4, 5, 0, 1, 2 ])
-]).
-
-============================== end of model ==========================
-
 ============================== STATISTICS ============================
 
 For domain size 6.
 
-Current CPU time: 0.00 seconds (total CPU time: 0.01 seconds).
-Ground clauses: seen=229, kept=229.
-Selections=22, assignments=78, propagations=206, current_models=1.
-Rewrite_terms=2719, rewrite_bools=518, indexes=825.
-Rules_from_neg_clauses=12, cross_offs=251.
+Current CPU time: 0.00 seconds (total CPU time: 0.02 seconds).
+Ground clauses: seen=3450, kept=3414.
+Selections=4, assignments=8, propagations=14, current_models=0.
+Rewrite_terms=1516, rewrite_bools=94, indexes=69.
+Rules_from_neg_clauses=0, cross_offs=12.
 
 ============================== end of statistics =====================
 
-User_CPU=0.01, System_CPU=0.00, Wall_clock=0.
+============================== DOMAIN SIZE 7 =========================
 
-Exiting with 1 model.
+============================== STATISTICS ============================
 
-Process 1238 exit (max_models) Mon Aug  4 23:32:56 2025
-The process finished Mon Aug  4 23:32:56 2025
+For domain size 7.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.03 seconds).
+Ground clauses: seen=5768, kept=5719.
+Selections=4, assignments=8, propagations=15, current_models=0.
+Rewrite_terms=2229, rewrite_bools=111, indexes=78.
+Rules_from_neg_clauses=0, cross_offs=14.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 8 =========================
+
+============================== STATISTICS ============================
+
+For domain size 8.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.05 seconds).
+Ground clauses: seen=9064, kept=9000.
+Selections=4, assignments=8, propagations=16, current_models=0.
+Rewrite_terms=3138, rewrite_bools=128, indexes=87.
+Rules_from_neg_clauses=0, cross_offs=16.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 9 =========================
+
+============================== STATISTICS ============================
+
+For domain size 9.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.07 seconds).
+Ground clauses: seen=13572, kept=13491.
+Selections=4, assignments=8, propagations=17, current_models=0.
+Rewrite_terms=4267, rewrite_bools=145, indexes=96.
+Rules_from_neg_clauses=0, cross_offs=18.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 10 ========================
+
+============================== STATISTICS ============================
+
+For domain size 10.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.10 seconds).
+Ground clauses: seen=19550, kept=19450.
+Selections=4, assignments=8, propagations=18, current_models=0.
+Rewrite_terms=5640, rewrite_bools=162, indexes=105.
+Rules_from_neg_clauses=0, cross_offs=20.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 11 ========================
+
+============================== STATISTICS ============================
+
+For domain size 11.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.13 seconds).
+Ground clauses: seen=27280, kept=27159.
+Selections=4, assignments=8, propagations=19, current_models=0.
+Rewrite_terms=7281, rewrite_bools=179, indexes=114.
+Rules_from_neg_clauses=0, cross_offs=22.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 12 ========================
+
+============================== STATISTICS ============================
+
+For domain size 12.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.19 seconds).
+Ground clauses: seen=37068, kept=36924.
+Selections=4, assignments=8, propagations=20, current_models=0.
+Rewrite_terms=9214, rewrite_bools=196, indexes=123.
+Rules_from_neg_clauses=0, cross_offs=24.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 13 ========================
+
+============================== STATISTICS ============================
+
+For domain size 13.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.28 seconds).
+Ground clauses: seen=49244, kept=49075.
+Selections=4, assignments=8, propagations=21, current_models=0.
+Rewrite_terms=11463, rewrite_bools=213, indexes=132.
+Rules_from_neg_clauses=0, cross_offs=26.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 14 ========================
+
+============================== STATISTICS ============================
+
+For domain size 14.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.36 seconds).
+Ground clauses: seen=64162, kept=63966.
+Selections=4, assignments=8, propagations=22, current_models=0.
+Rewrite_terms=14052, rewrite_bools=230, indexes=141.
+Rules_from_neg_clauses=0, cross_offs=28.
+
+============================== end of statistics =====================
+
+============================== DOMAIN SIZE 15 ========================
+
+mace4_sig_handler: condition 2
+============================== STATISTICS ============================
+
+For domain size 15.
+
+Current CPU time: 0.00 seconds (total CPU time: 0.37 seconds).
+Ground clauses: seen=3847, kept=3621.
+Selections=0, assignments=0, propagations=15, current_models=0.
+Rewrite_terms=0, rewrite_bools=15, indexes=0.
+Rules_from_neg_clauses=0, cross_offs=0.
+
+============================== end of statistics =====================
+
+User_CPU=0.37, System_CPU=0.00, Wall_clock=0.
+
+Exiting with failure.
+
+Process 1073 exit (mace_sigint) Mon Dec  1 21:09:07 2025
+The process finished Mon Dec  1 21:09:07 2025

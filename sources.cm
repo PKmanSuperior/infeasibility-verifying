@@ -5,6 +5,7 @@ Group is
 
 	./list_util.sml
 	./string_util.sml
+	./assoc_list.sml
 	
 	./var.sml
 	./fun.sml
@@ -15,7 +16,16 @@ Group is
 	./parsing.sml
 	./term.sml
 
+	./subst.sml
+	./trs.sml
+	
 	./formula.sml
+
+	./decompose.sml
+	./order.sml
+	
+	./translate.sml
+	
 	./infinite.sml
 
 	./mace.sml
@@ -24,3 +34,5 @@ Group is
 	./ages.sml
 
 	./main.sml
+
+	./input.sml

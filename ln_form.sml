@@ -8,7 +8,8 @@ sig
     val makeConstPred: Form.pred_key * int -> const list list
     val makeConstFun: Term.fun_key * int -> const list
     val vars: term -> Var.key list
-    val isContainVar: atom -> bool
+    val varsAtom: atom -> Var.key list
+    val containVar: atom -> bool
     val makeTerm: Term.term -> term
     val toStringTerm: term -> string
     val toStringForm: atom -> string
@@ -18,7 +19,8 @@ sig
     val expandTerm: term -> term
     val combineTerm: term -> term
     val makeForm: Form.atom -> atom list
-    val makeFormNeg: Form.atom -> atom list
+    val makeFormNegAnt: Form.atom -> atom list
+    val makeFormNegConseq: Form.atom -> atom * atom
     val moveTerm: atom -> atom
 
     val getCoef: term -> coef list
@@ -39,13 +41,13 @@ datatype atom = Eq of term * term | Geq of term * term
 		  
 fun makeConstPred (p, n) =
     let val enum = List.tabulate (n, fn x => x + 1) @ [0]
-	val consts = [List.map (fn x => p ^ "_1_" ^ Int.toString x) enum, List.map (fn x => p ^ "_2_" ^ Int.toString x) enum]
+	val consts = [List.map (fn x => "$" ^ p ^ "_1_" ^ Int.toString x) enum, List.map (fn x => "$" ^ p ^ "_2_" ^ Int.toString x) enum]
     in if p <> "=" then consts else [["1", "-1", "0"],["-1", "1", "0"]]
     end
 				 
 fun makeConstFun (f, k) =
     let val enum = List.tabulate (k, fn x => x + 1) @ [0]
-	val consts = List.map (fn x => f ^ "_" ^ (Int.toString x)) enum
+	val consts = List.map (fn x => "$" ^ f ^ "_" ^ (Int.toString x)) enum
     in consts
     end
 
@@ -54,8 +56,11 @@ fun vars (Var x) = if x <> ("0", 0) then [x] else []
 and varsList [] = []
   | varsList ((c, t)::ts) = LU.union (vars t, varsList ts)
 
-fun isContainVar (Eq (l,r)) = not (null (vars l @ vars r))
-  | isContainVar (Geq (l,r)) = not (null (vars l @ vars r))
+fun varsAtom (Eq (l, r)) = LU.union (vars l ,vars r)
+  | varsAtom (Geq (l, r)) = LU.union (vars l, vars r)
+
+fun containVar (Eq (l,r)) = not (null (vars l @ vars r))
+  | containVar (Geq (l,r)) = not (null (vars l @ vars r))
 	
 fun makeTerm (T.Var x) = Fun [([["1"]],Var x)]
   | makeTerm (T.Fun (f,ts)) =
@@ -132,7 +137,7 @@ fun makeForm (F.Pred (p,ts)) =
   | makeForm (F.Eq (l, r)) = [Geq (concatTerm (makeTerm l,negateTerm (makeTerm r)),Fun [([["0"]],Var ("0",0))]),Geq (concatTerm (negateTerm (makeTerm l),makeTerm r),Fun [([["0"]],Var ("0",0))])]
   | makeForm (F.Neq (l, r)) = raise Fail "Error: invalid form"
 
-fun makeFormNeg atom =
+fun makeFormNegAnt atom =
     let fun main (Eq (lhs,rhs)) =
 	    let val negLhs = negateTerm lhs
 		val negRhs = concatTerm (negateTerm rhs,Fun [([["1"]],Var ("0",0))])
@@ -142,21 +147,35 @@ fun makeFormNeg atom =
 	    let val negLhs = negateTerm lhs
 		val negRhs = concatTerm (negateTerm rhs,Fun [([["1"]],Var ("0",0))])
 	    in Geq (negLhs,negRhs)
-	    end  
+	    end
     in List.map main (makeForm atom)
+    end
+
+fun makeFormNegConseq atom =
+    let fun main (Eq (lhs, rhs)) =
+	    let val negLhs = negateTerm lhs
+		val negRhs = concatTerm (negateTerm rhs,Fun [([["1"]],Var ("0",0))])
+	    in Eq (negLhs,negRhs)
+	    end
+	  | main (Geq (lhs,rhs)) =
+	    let val negLhs = negateTerm lhs
+		val negRhs = concatTerm (negateTerm rhs,Fun [([["1"]],Var ("0",0))])
+	    in Geq (negLhs,negRhs)
+	    end
+    in (fn [p1, p2] => (p1, main p2) | _ => raise Fail "Error: invalid formula") (makeForm atom)
     end 
 	
 fun moveTerm (Eq (Fun lhs,Fun rhs)) =
     let val (Fun exLhs,Fun exRhs) = (expandTerm (Fun lhs),expandTerm (Fun rhs))
 	val (lvars,lconsts) = List.partition (fn (coef,var) => var <> Var ("0",0)) exLhs
 	val (rvars,rconsts) = List.partition (fn (coef,var) => var <> Var ("0",0)) exRhs
-    in if null (vars (Fun lhs) @ vars (Fun rhs)) then Eq (combineTerm (Fun exLhs),combineTerm (Fun exRhs)) else Eq (combineTerm (concatTerm (Fun lvars,negateTerm (Fun rvars))),combineTerm (concatTerm (Fun rconsts,negateTerm (Fun lconsts))))
+    in if null (vars (Fun lhs) @ vars (Fun rhs)) then Eq (Fun [([["0"]], Var ("0", 0))],combineTerm (concatTerm (negateTerm (Fun exLhs), Fun exRhs))) else Eq (combineTerm (concatTerm (Fun lvars,negateTerm (Fun rvars))),combineTerm (concatTerm (Fun rconsts,negateTerm (Fun lconsts))))
     end
   | moveTerm (Geq (Fun lhs,Fun rhs)) =
     let val (Fun exLhs,Fun exRhs) = (expandTerm (Fun lhs),expandTerm (Fun rhs))
 	val (lvars,lconsts) = List.partition (fn (coef,var) => var <> Var ("0",0)) exLhs
 	val (rvars,rconsts) = List.partition (fn (coef,var) => var <> Var ("0",0)) exRhs
-    in if null (vars (Fun lhs) @ vars (Fun rhs)) then Geq (combineTerm (Fun exLhs),combineTerm (Fun exRhs)) else Geq (combineTerm (concatTerm (Fun lvars,negateTerm (Fun rvars))),combineTerm (concatTerm (Fun rconsts,negateTerm (Fun lconsts))))
+    in if null (vars (Fun lhs) @ vars (Fun rhs)) then Geq (Fun [([["0"]], Var ("0", 0))],combineTerm (concatTerm (negateTerm (Fun exLhs), Fun exRhs))) else Geq (combineTerm (concatTerm (Fun lvars,negateTerm (Fun rvars))),combineTerm (concatTerm (Fun rconsts,negateTerm (Fun lconsts))))
     end 
   | moveTerm _ = raise Fail "Error: invalid input"
 

@@ -12,6 +12,9 @@ sig
 		  | Iff of form * form
 		  | All of Var.key * form
 		  | Exists of Var.key * form
+    datatype lit = Pos of atom | Neg of atom
+    type clause = lit list
+    type cnf = clause list
     datatype token = ATOM of string
 		   | NOT
 		   | AND
@@ -25,7 +28,10 @@ sig
 
     exception SyntaxErr
     exception ParseErr
-			 
+
+    val toNeq: form -> form
+    val toVars: form -> form
+		  
     val toStringAtom: atom -> string
     val fromStringAtom: string -> atom
     val toString: form -> string
@@ -37,6 +43,7 @@ sig
 
     val isPred: atom -> bool
     val isEq: atom -> bool
+    val containEq: form -> bool
 
     val arity: atom -> pred_key * int
     val getArFun: form -> (Term.fun_key * int) list
@@ -44,15 +51,17 @@ sig
     val getArPred: form -> (pred_key * int) list
     val getArsPred: form list -> (pred_key * int) list
 
+    val getAtom: form -> atom list
     val isAtom: form -> bool
     val isNNF: form -> bool
     val nnf: form -> form
-    val isHorn: form -> bool
-    val distImp: form -> form list
-    val toHorn: form list -> form list
+    val isCNF: form -> bool
+    val cnf: form -> form
+    val cnfList: form -> cnf
     val skolem: form -> form
     val toQF: form -> form
-    val addQuants: form -> form
+    val addQuantsAll: form -> form
+    val addQuantsExists: form -> form
 end 
 
 structure Form : FORM =
@@ -74,7 +83,10 @@ datatype form = Atom of atom
 	      | Imp of form * form
 	      | Iff of form * form
 	      | All of Var.key * form
-	      | Exists of Var.key * form 
+	      | Exists of Var.key * form
+datatype lit = Pos of atom | Neg of atom
+type clause = lit list
+type cnf = clause list
 datatype token = ATOM of string
 	       | NOT
 	       | AND
@@ -88,6 +100,20 @@ datatype token = ATOM of string
 
 exception SyntaxErr
 exception ParseErr
+
+fun varsAtom (Pred (p, ts)) = LU.unions (List.map T.vars ts)
+  | varsAtom (Eq (l, r)) = LU.union (T.vars l, T.vars r)
+  | varsAtom (Neq (l, r)) = LU.union (T.vars l, T.vars r)
+
+fun vars (Atom p) = varsAtom p
+  | vars (Not p) = vars p
+  | vars (And (p, q)) = LU.union (vars p, vars q)
+  | vars (Or (p, q)) = LU.union (vars p, vars q)
+  | vars (Imp (p, q)) = LU.union (vars p, vars q)
+  | vars (Iff (p, q)) = LU.union (vars p, vars q)
+  | vars (All (x, p)) = vars p
+  | vars (Exists (x, p)) = vars p
+
 
 fun paren s = "(" ^ s ^ ")"
 
@@ -199,6 +225,76 @@ fun toVars form =
     in replace form
     end
 
+fun hasQuants (Atom _) = false
+  | hasQuants (Not p) = hasQuants p
+  | hasQuants (And (p, q)) = hasQuants p orelse hasQuants q
+  | hasQuants (Or (p, q)) = hasQuants p orelse hasQuants q
+  | hasQuants (Imp (p, q)) = hasQuants p orelse hasQuants q
+  | hasQuants (Iff (p, q)) = hasQuants p orelse hasQuants q
+  | hasQuants (All (x, p)) = hasQuants p
+  | hasQuants (Exists (x, p)) = true
+
+fun replaceFun form i =
+    let fun getQuants (Atom atom, quants) = Atom atom
+	  | getQuants (Not p, quants) = Not (getQuants (p, quants))
+	  | getQuants (And (p, q), quants) = And (getQuants (p, quants), getQuants (q, quants))
+	  | getQuants (Or (p, q), quants) = Or (getQuants (p, quants), getQuants (q, quants))
+	  | getQuants (Imp (p, q), quants) = Imp (getQuants (p, quants), getQuants (q, quants))
+	  | getQuants (Iff (p, q), quants) = Iff (getQuants (p, quants), getQuants (q, quants))
+	  | getQuants (All (x, p), quants) = All (x, getQuants (p, x::quants))
+	  | getQuants (Exists (x, p), quants) = makeFun p x (rev quants) i
+	and makeFun (Atom atom) var quants i =
+	    let fun replaceTerm var term (T.Var x) = if var = x then term else T.Var x
+		  | replaceTerm var term (T.Fun (f,ts)) = T.Fun (f, List.map (fn t => replaceTerm var term t) ts)
+		fun replace var term (Atom (Pred (p, ts))) = Atom (Pred (p, List.map (fn t => replaceTerm var term t) ts))
+		  | replace var term (Atom (Eq (l, r))) = Atom (Eq (replaceTerm var term l, replaceTerm var term r))
+		  | replace var term (Atom (Neq (l, r))) = Atom (Neq (replaceTerm var term l, replaceTerm var term r))
+		  | replace var term p = p
+		val skolemSymbol = Fun.fromString ("$sk" ^ Int.toString i)
+		val skolemArgs = List.map (fn x => T.Var x) quants
+		val skolemTerm = T.Fun (skolemSymbol,skolemArgs)
+	    in replace var skolemTerm (Atom atom)
+	    end 
+	  | makeFun (Not p) var quants i = Not (makeFun p var quants i)
+	  | makeFun (And (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
+	  | makeFun (Or (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
+	  | makeFun (Imp (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
+	  | makeFun (Iff (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
+	  | makeFun (All (x, p)) var quants i = All (x, makeFun p var quants i)
+	  | makeFun (Exists (x, p)) var quants i = Exists (x, makeFun p var quants i)
+    in getQuants (form, [])
+    end 
+						
+fun skolem form =
+    let fun loop p i = if hasQuants p then loop (replaceFun p i) (i + 1) else p
+    in loop form 1
+    end
+
+fun deleteQuants (Atom atom) = Atom atom
+  | deleteQuants (Not p) = Not (deleteQuants p)
+  | deleteQuants (And (p, q)) = And (deleteQuants p, deleteQuants q)
+  | deleteQuants (Or (p, q)) = Or (deleteQuants p, deleteQuants q)
+  | deleteQuants (Imp (p, q)) = Imp (deleteQuants p, deleteQuants q)
+  | deleteQuants (Iff (p, q)) = Iff (deleteQuants p, deleteQuants q)
+  | deleteQuants (All (x, p)) =  deleteQuants p
+  | deleteQuants (Exists (x, p)) = deleteQuants p
+
+fun toQF form = deleteQuants (skolem form)
+
+fun addQuantsAll form =
+    let fun addPrefixQuants [] p = p
+	  | addPrefixQuants (var::rest) p = addPrefixQuants rest (All (var, p))
+	val xs = rev (vars form)
+    in addPrefixQuants xs form
+    end
+
+fun addQuantsExists form =
+    let fun addPrefixQuants [] p = p
+	  | addPrefixQuants (var::rest) p = addPrefixQuants rest (Exists (var, p))
+	val xs = rev (vars form)
+    in addPrefixQuants xs form
+    end
+
 fun toString form =
     let fun aux (Atom atom) = toStringAtom atom
 	  | aux (Not p) = "~" ^ paren (aux p)
@@ -208,7 +304,7 @@ fun toString form =
 	  | aux (Iff (p, q)) = paren (aux p ^ " <-> " ^ aux q)
 	  | aux (All (x, p)) = "all " ^ Var.toString x ^ " " ^ paren (aux p)
 	  | aux (Exists (x, p)) = "exists " ^ Var.toString x ^ " " ^ paren (aux p)
-    in aux (toVars (toNeq form))
+    in (aux o toVars o toNeq) form
     end 
 									   
 fun tokenize str =	
@@ -346,19 +442,6 @@ fun input filename =
     in form
     end
 
-fun varsAtom (Pred (p, ts)) = LU.unions (List.map T.vars ts)
-  | varsAtom (Eq (l, r)) = LU.union (T.vars l, T.vars r)
-  | varsAtom (Neq (l, r)) = LU.union (T.vars l, T.vars r)
-
-fun vars (Atom p) = varsAtom p
-  | vars (Not p) = vars p
-  | vars (And (p, q)) = LU.union (vars p, vars q)
-  | vars (Or (p, q)) = LU.union (vars p, vars q)
-  | vars (Imp (p, q)) = LU.union (vars p, vars q)
-  | vars (Iff (p, q)) = LU.union (vars p, vars q)
-  | vars (All (x, p)) = vars p
-  | vars (Exists (x, p)) = vars p
-
 fun isPred (Pred _) = true
   | isPred (Eq _) = false
   | isPred (Neq _) = false
@@ -366,6 +449,15 @@ fun isPred (Pred _) = true
 fun isEq (Pred _) = false
   | isEq (Eq _) = true
   | isEq (Neq _) = true
+
+fun containEq (Atom atom) = isEq atom
+  | containEq (Not p) = containEq p
+  | containEq (And (p, q)) = containEq p orelse containEq q
+  | containEq (Or (p, q)) = containEq p orelse containEq q
+  | containEq (Imp (p, q)) = containEq p orelse containEq q
+  | containEq (Iff (p, q)) = containEq p orelse containEq q
+  | containEq (All (x, p)) = containEq p
+  | containEq (Exists (x, p)) = containEq p
 
 fun arity (Pred (p, ts)) = (p, length ts)
   | arity (Eq _) = ("=", 2)
@@ -397,6 +489,15 @@ fun getArPred (Atom p) = [arity p]
 
 fun getArsPred forms = LU.unions (List.map getArPred forms)
 
+fun getAtom (Atom p) = [p]
+  | getAtom (Not p) = getAtom p
+  | getAtom (And (p, q)) = LU.union (getAtom p, getAtom q)
+  | getAtom (Or (p, q)) = LU.union (getAtom p, getAtom q)
+  | getAtom (Imp (p, q)) = LU.union (getAtom p, getAtom q)
+  | getAtom (Iff (p, q)) = LU.union (getAtom p, getAtom q)
+  | getAtom (All (x, p)) = getAtom p
+  | getAtom (Exists (x, p)) = getAtom p
+				 
 fun isAtom (Atom p) = true
   | isAtom _ = false
 
@@ -422,94 +523,39 @@ fun nnfstep (Not (And (p, q))) = Or (nnfstep (Not p), nnfstep (Not q))
   | nnfstep (Or (p, q)) = Or (nnfstep p, nnfstep q)
   | nnfstep (Imp (p, q)) = nnfstep (Or (Not p, q))
   | nnfstep (Iff (p, q)) = And (nnfstep (Or (Not p, q)),nnfstep (Or (p, Not q)))
-  | nnfstep (Not p) = Not (nnfstep p)            
-  | nnfstep p = p
+  | nnfstep (Not p) = Not (nnfstep p)
+  | nnfstep (All (x, p)) = All (x, nnfstep p)
+  | nnfstep (Exists (x, p)) = Exists (x, nnfstep p)
+  | nnfstep (Atom atom) = Atom atom
 
 fun nnf form = if isNNF form then form else nnf (nnfstep form)
 
-fun isHorn (Imp (p,q)) = 
-    let fun isHornProper (And (p,q)) = isHornProper p andalso isHornProper q
-	  | isHornProper p = isLiteral p
-    in isHornProper p andalso isLiteral q
-    end
-  | isHorn p = isLiteral p
-						
-fun distImp form = case form of
-		       Or (p,q) => [Imp (nnf (Not p),q)]
-		     | And (p,q) => [p,q]
-		     | Imp (Or (p,q),r) => [Imp (p,r),Imp (q,r)]
-		     | Imp (p, Or (q,r)) => [Imp (And (p, nnf (Not q)),r)]
-		     | Imp (p, And (q,r)) => [Imp (p,q),Imp (p,r)]
-		     | Imp (And (p, Or (q, q')), r) => [Imp (And (p,q),r),Imp (And (p,q'),r)]
-		     | Imp (And (Or (p, p'), q), r) => [Imp (And (p,q),r),Imp (And (p',q),r)]
-		     | p => [p]
+fun isClause (Atom atom) = true
+  | isClause (Not p) = isAtom p
+  | isClause (Or (p, q)) = isClause p andalso isClause q
+  | isClause _ = false
 
-fun toHorn forms =
-    let val (horn, rest) = List.partition isHorn forms
-    in if null rest then horn else horn @ (toHorn (List.concatMap distImp rest))
-    end 
+fun isCNF (Atom atom) = true
+  | isCNF (Not p) = isAtom p
+  | isCNF (And (p, q)) = isCNF p andalso isCNF q
+  | isCNF (Or (p, q)) = isClause p andalso isClause q
+  | isCNF _ = false
 
-fun hasQuants (Atom _) = false
-  | hasQuants (Not p) = hasQuants p
-  | hasQuants (And (p, q)) = hasQuants p orelse hasQuants q
-  | hasQuants (Or (p, q)) = hasQuants p orelse hasQuants q
-  | hasQuants (Imp (p, q)) = hasQuants p orelse hasQuants q
-  | hasQuants (Iff (p, q)) = hasQuants p orelse hasQuants q
-  | hasQuants (All (x, p)) = hasQuants p
-  | hasQuants (Exists (x, p)) = true
-
-fun replaceFun form i =
-    let fun getQuants (Atom atom, quants) = Atom atom
-	  | getQuants (Not p, quants) = Not (getQuants (p, quants))
-	  | getQuants (And (p, q), quants) = And (getQuants (p, quants), getQuants (q, quants))
-	  | getQuants (Or (p, q), quants) = Or (getQuants (p, quants), getQuants (q, quants))
-	  | getQuants (Imp (p, q), quants) = Imp (getQuants (p, quants), getQuants (q, quants))
-	  | getQuants (Iff (p, q), quants) = Iff (getQuants (p, quants), getQuants (q, quants))
-	  | getQuants (All (x, p), quants) = All (x, getQuants (p, x::quants))
-	  | getQuants (Exists (x, p), quants) = makeFun p x (rev quants) i
-	and makeFun (Atom atom) var quants i =
-	    let fun replaceTerm var term (T.Var x) = if var = x then term else T.Var x
-		  | replaceTerm var term (T.Fun (f,ts)) = T.Fun (f, List.map (fn t => replaceTerm var term t) ts)
-		fun replace var term (Atom (Pred (p, ts))) = Atom (Pred (p, List.map (fn t => replaceTerm var term t) ts))
-		  | replace var term (Atom (Eq (l, r))) = Atom (Eq (replaceTerm var term l, replaceTerm var term r))
-		  | replace var term (Atom (Neq (l, r))) = Atom (Neq (replaceTerm var term l, replaceTerm var term r))
-		  | replace var term p = p
-		val skolemSymbol = Fun.fromString ("$sk" ^ Int.toString i)
-		val skolemArgs = List.map (fn x => T.Var x) quants
-		val skolemTerm = T.Fun (skolemSymbol,skolemArgs)
-	    in replace var skolemTerm (Atom atom)
-	    end 
-	  | makeFun (Not p) var quants i = Not (makeFun p var quants i)
-	  | makeFun (And (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
-	  | makeFun (Or (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
-	  | makeFun (Imp (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
-	  | makeFun (Iff (p, q)) var quants i = And (makeFun p var quants i, makeFun q var quants i)
-	  | makeFun (All (x, p)) var quants i = All (x, makeFun p var quants i)
-	  | makeFun (Exists (x, p)) var quants i = Exists (x, makeFun p var quants i)
-    in getQuants (form, [])
-    end 
-						
-fun skolem form =
-    let fun loop p i = if hasQuants p then loop (replaceFun p i) (i + 1) else p
-    in loop form 1
+fun cnf form =
+    let fun distribute (Or (p, And(q, r))) = And (distribute (Or(p, q)), distribute (Or(p, r)))
+	  | distribute (Or (And(q, r), p)) = And (distribute (Or(q, p)), distribute (Or(r, p)))
+	  | distribute (And(p, q)) = And (distribute p, distribute q)
+	  | distribute (Or(p, q)) = Or (distribute p, distribute q)
+	  | distribute p = p
+    in if isCNF form then form else cnf (distribute form)
     end
 
-fun deleteQuants (Atom atom) = Atom atom
-  | deleteQuants (Not p) = Not (deleteQuants p)
-  | deleteQuants (And (p, q)) = And (deleteQuants p, deleteQuants q)
-  | deleteQuants (Or (p, q)) = Or (deleteQuants p, deleteQuants q)
-  | deleteQuants (Imp (p, q)) = Imp (deleteQuants p, deleteQuants q)
-  | deleteQuants (Iff (p, q)) = Iff (deleteQuants p, deleteQuants q)
-  | deleteQuants (All (x, p)) =  deleteQuants p
-  | deleteQuants (Exists (x, p)) = deleteQuants p
+fun clauseList (Atom atom) = [Pos atom]
+  | clauseList (Not (Atom atom)) = [Neg atom]
+  | clauseList (Or (p, q)) = clauseList p @ clauseList q
+  | clauseList _ = []
 
-fun toQF form = deleteQuants (skolem form)
-
-fun addQuants form =
-    let fun addPrefixQuants [] p = p
-	  | addPrefixQuants (var::rest) p = addPrefixQuants rest (All (var, p))
-	val xs = rev (vars form)
-    in addPrefixQuants xs form
-    end 
+fun cnfList (And (p, q)) = cnfList p @ cnfList q
+  | cnfList p = [clauseList p]
 end 
 end

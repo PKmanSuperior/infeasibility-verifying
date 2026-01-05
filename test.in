@@ -1,0 +1,5 @@
+(format CTRS oriented :problem infeasibility)
+(fun 0 0)
+(fun f 1)
+(rule (f x) x)
+(infeasible? (= x (f x)))

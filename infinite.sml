@@ -6,11 +6,16 @@ sig
     val makeInjNotOntoPred: Form.pred_key -> Term.fun_key * int -> Form.form list
     val makeOntoNotInj: Term.fun_key * int -> Form.form list
     val makeSerial: Form.pred_key -> Term.fun_key * int -> Form.form list
+    val makeForward: (Form.pred_key * Form.pred_key) -> Term.fun_key * int -> Form.form list
     val makeConjecture: Form.form list -> string list
+
+    val isRefl: Form.pred_key -> Form.form list -> bool
+    val isNotRefl: Form.pred_key -> Form.form list -> bool
+    val elimPred: Form.pred_key list -> Form.form list -> (Form.pred_key -> Form.form list -> bool) -> Form.pred_key list
 
     val makeInFile: string list -> string -> unit
     val runP9: unit -> string
-    val checkInfProp: Form.form list-> bool
+    val checkInfProp: Form.form list-> IntInf.int -> bool
 end
 
 structure Inf :INF =
@@ -71,20 +76,70 @@ fun makeSerial pred (symbol, arity) =
     let fun makeForm x y z var symbol args =
 	    let val consts = makeConsts args
 		val notRefl = F.Not (F.Atom (F.Pred (pred, [T.Var x, T.Var x])))
-		val trans = F.Imp (F.Atom (F.Pred (pred, [T.Var x, T.Var z])), F.And (F.Atom (F.Pred (pred, [T.Var x, T.Var y])), F.Atom (F.Pred (pred, [T.Var y, T.Var z]))))
+		val trans = F.Imp (F.And (F.Atom (F.Pred (pred, [T.Var x, T.Var y])), F.Atom (F.Pred (pred, [T.Var y, T.Var z]))), F.Atom (F.Pred (pred, [T.Var x, T.Var z])))
  		val leftSerial = F.Atom (F.Pred (pred, [T.Var x, T.Var var]))
 		val rightSerial = F.Atom (F.Pred (pred, [T.Var var, T.Var x]))
 		val quants = fn form => F.All (x, F.Exists (var, F.All (y, F.All (z, form))))
 	    in [quants (F.And (notRefl, F.And (trans, leftSerial))), quants (F.And (notRefl, F.And (trans, rightSerial)))]
 	    end 
     in List.concatMap (fn args => makeForm ("x", 0) ("y", 0) ("z", 0) ("$C", 0) symbol args) (tl (LU.combinations arity [1,0]))
+    end
+
+fun makeForward (p, q) (symbol, arity) =
+    let fun makeForm x y z var symbol args =
+	    let val consts = makeConsts args
+		val refl = F.Atom (F.Pred (q,[T.Var x, T.Var x]))
+		val trans = F.Imp (F.And (F.Atom (F.Pred (p, [T.Var x, T.Var y])), F.Atom (F.Pred (q, [T.Var y, T.Var z]))), F.Atom (F.Pred (q, [T.Var x, T.Var z])))
+		val leftForward = F.And (F.Atom (F.Pred (p, [T.Var x, T.Var var])), F.Not (F.Atom (F.Pred (q, [T.Var var, T.Var x]))))
+		val rightForward = F.And (F.Atom (F.Pred (p, [T.Var var, T.Var x])), F.Not (F.Atom (F.Pred (q, [T.Var x, T.Var var]))))
+		val quants = fn form => F.All (x, F.Exists (var, F.All (y, F.All (z, form))))
+	    in [quants (F.And (refl, F.And (trans, leftForward))), quants (F.And (refl, F.And (trans, rightForward)))]
+	    end 
+    in List.concatMap (fn args => makeForm ("x", 0) ("y", 0) ("z", 0) ("$C", 0) symbol args) (tl (LU.combinations arity [1,0]))
     end 
 
+fun toString form =
+    let fun paren s = "(" ^ s ^ ")"
+	fun aux (F.Atom atom) = F.toStringAtom atom
+	  | aux (F.Not p) = "-" ^ paren (aux p)
+	  | aux (F.And (p, q)) = paren (aux p ^ " & " ^ aux q)
+	  | aux (F.Or (p, q)) = paren (aux p ^ " | " ^ aux q)
+	  | aux (F.Imp (p, q)) = paren (aux p ^ " -> " ^ aux q)
+	  | aux (F.Iff (p, q)) = paren (aux p ^ " <-> " ^ aux q)
+	  | aux (F.All (x, p)) = "all " ^ Var.toString x ^ " " ^ paren (aux p)
+	  | aux (F.Exists (x, p)) = "exists " ^ Var.toString x ^ " " ^ paren (aux p)
+    in (aux o F.toVars o F.toNeq) form
+    end
+
+fun isRefl pred forms =
+    let fun main (F.Atom (F.Pred (p, [s, t]))) = if p = pred andalso T.isVar s andalso T.isVar t andalso s = t
+						      then true
+						 else false
+	  | main (F.All (x, p)) = main p
+	  | main _ = false 
+    in List.exists (fn form => main form) forms
+    end
+
+fun isNotRefl pred forms =
+    let fun main (F.Not (F.Atom (F.Pred (p, [s, t])))) = if p = pred andalso T.isVar s andalso T.isVar t andalso s = t
+						      then true
+							 else false
+	  | main (F.All (x, p)) = main p
+	  | main _ = false 
+    in List.exists (fn form => main form) forms
+    end
+	
+fun elimPred preds forms fx = List.filter (fn pred => not (fx pred forms)) preds
+	
 fun makeConjecture forms =
     let val funs = getSymbolsFun forms
 	val preds = getSymbolsPred forms
-	val conjectures = (List.concatMap makeInjNotOntoEq funs) @ (List.concatMap (fn f => List.concatMap (fn p => makeInjNotOntoPred p f) preds) funs) @ (List.concatMap makeOntoNotInj funs) @ (List.concatMap (fn f => List.concatMap (fn p => makeSerial p f) preds) funs)
-    in List.map (fn conj => F.toString conj) conjectures
+	val InjNotOntoPred = List.concatMap (fn f => List.concatMap (fn p => makeInjNotOntoPred p f) (elimPred preds forms isNotRefl)) funs
+	val serial = List.concatMap (fn f => List.concatMap (fn p => makeSerial p f) (elimPred preds forms isRefl)) funs
+	val forward = List.concatMap (fn f=> List.concatMap (fn (p, q) => makeForward (p, q) f) (List.mapPartial (fn [p, q] => if p = q then NONE else SOME (p, q) | _ => NONE) (LU.combinations 2 preds))) funs
+	val InjNotOntoEq = List.concatMap makeInjNotOntoEq funs
+	val ontoNotInj = List.concatMap makeOntoNotInj funs
+    in List.map (fn conj => toString conj) (InjNotOntoPred @ serial @ forward @ InjNotOntoEq @ ontoNotInj)
     end
 
 fun makeInFile assumptions conj =
@@ -114,16 +169,18 @@ fun runP9 () =
     in result
     end
 
-fun checkInfProp forms =
+fun checkInfProp forms sec =
     let val conjList = makeConjecture forms
-	val assumptions = List.map F.toString forms
+	val assumptions = List.map toString forms
 	fun loopProving _ [] = false
 	  | loopProving assumptions (conj::rest) =
 	    let val _ = makeInFile assumptions conj
 		val isInf = String.isSubstring "THEOREM PROVED" (runP9 ())
 	    in if isInf then true else loopProving assumptions rest
-	    end 
-    in loopProving assumptions conjList
+	    end
+	val time = Time.fromSeconds sec
+    in TimeLimit.timeLimit time (loopProving assumptions) conjList
+       handle TimeLimit.TimeOut => false
     end 
 end
 end 

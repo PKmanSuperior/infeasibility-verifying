@@ -1,7 +1,23 @@
-assign(max_seconds, 10).
+assign(max_seconds, 2).
 formulas(theory).
-all x (f(e,x)=x).
-all x (f(g(x),x)=e).
-all x (all y (all z (f(x,f(y,z))=f(f(x,y),z)))).
-f(a,b)!=f(b,a).
+all x (Q(x,x)).
+all y (all x (all z (((P(x,y) & Q(y,z)) -> Q(x,z))))).
+all x (all y (all x_2 ((P(x,y) -> P(add(x,x_2),add(y,x_2)))))).
+all x (all x_1 (all y ((P(x,y) -> P(add(x_1,x),add(x_1,y)))))).
+all x (all y (all x_2 ((P(x,y) -> P(gcd(x,x_2),gcd(y,x_2)))))).
+all x (all x_1 (all y ((P(x,y) -> P(gcd(x_1,x),gcd(x_1,y)))))).
+all x (all y ((P(x,y) -> P(iadd(x),iadd(y))))).
+all x (all y ((P(x,y) -> P(s(x),s(y))))).
+all x (all y (all x_2 ((P(x,y) -> P(tp2(x,x_2),tp2(y,x_2)))))).
+all x (all x_1 (all y ((P(x,y) -> P(tp2(x_1,x),tp2(x_1,y)))))).
+all x (all y ((P(x,y) -> P(u1(x),u1(y))))).
+all x_1 (all x_2 (all x_3 ((Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_1,x_3),gcd(x_2,x_3)))))).
+all x_1 (all x_2 (all x_3 ((Q(iadd(x_1),tp2(x_2,x_3)) -> P(gcd(x_3,x_1),gcd(x_2,x_3)))))).
+all x_1 (P(gcd(x_1,$0),x_1)).
+all x_1 (P(gcd($0,x_1),x_1)).
+all x_1 (P(iadd(x_1),tp2($0,x_1))).
+all x_1 (P(iadd(s(x_1)),u1(iadd(x_1)))).
+all x_1 (all x_2 (P(u1(tp2(x_1,x_2)),tp2(s(x_1),x_2)))).
+all x_1 (all x_2 (P(iadd(add(x_1,x_2)),tp2(x_1,x_2)))).
+all x_1 (all x_2 (all x_3 (all x_4 (-((Q(iadd(x_4),tp2(x_1,x_2)) & Q(iadd(x_2),tp2(x_3,x_4)))))))).
 end_of_list.

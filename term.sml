@@ -14,8 +14,11 @@ sig
     val args: term -> term list 
     val isVar: term -> bool 
     val isFun: term -> bool 
-    val vars: term -> var_key list 
+    val vars: term -> var_key list
+    val varsNum: term -> (var_key * int) list
     val funs: term -> fun_key list
+    val funsNum: term -> int
+    val isGround: term -> bool
     val arity: term -> (fun_key * int) option
 
     val toString: term -> string
@@ -38,9 +41,6 @@ sig
     val makeContext: term -> position -> context
     val fillContext: context -> term -> term
     val replaceSubterm: term -> position -> term -> term
-
-    val addIndex: term -> int -> term
-    val size: term -> int
 
     val getAr: term -> (fun_key * int) list
 end
@@ -77,10 +77,26 @@ fun vars (Var x) = [x]
 and varsList [] = []
   | varsList (t::ts) = ListUtil.union (vars t, varsList ts)
 
+fun varsNum term =
+    let val vars = vars term
+	fun varNum var (Var x) = if x = var then 1 else 0
+	  | varNum var (Fun (f,ts)) = varNumList var ts
+	and varNumList var [] = 0
+	  | varNumList var (t::ts) = varNum var t + varNumList var ts
+    in List.map (fn x => (x, varNum x term)) vars
+    end 
+
 fun funs (Var x) = []
   | funs (Fun (f,ts)) = ListUtil.add f (funsList ts)
 and funsList [] = []
   | funsList (t::ts) = ListUtil.union (funs t, funsList ts)
+
+fun funsNum (Var x) = 0
+  | funsNum (Fun (f,ts)) = 1 + funsNumList ts
+and funsNumList [] = 0
+  | funsNumList (t::ts) = funsNum t + funsNumList ts
+
+fun isGround t = null (vars t)
 
 fun arity (Var x) = NONE
   | arity (Fun (f,ts)) = SOME (f,length ts)
@@ -205,11 +221,6 @@ fun makeContext (Var x) [] = (fn t => t)
 fun fillContext context t = context t
 
 fun replaceSubterm t p u = fillContext (makeContext t p) u
-
-fun addIndex (Var x) n = Var (Var.addIndex x n)
-  | addIndex (Fun (f,ts)) n = Fun (f,map (fn t => addIndex t n) ts)
-
-fun size t = length (pos t)
 
 fun getAr term =
     let val ps = pos term

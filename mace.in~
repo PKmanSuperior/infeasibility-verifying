@@ -1,4 +1,0 @@
-assign(iterate_up_to, 12).
-formulas(theory).
-all x(q(x,x)).
-end_of_list.

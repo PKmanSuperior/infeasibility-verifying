@@ -1,0 +1,20 @@
+mod EX is
+ sort S .
+ op 0 : -> S .
+ op CONS : S S -> S .
+ op FALSE : -> S .
+ op LE : S S -> S .
+ op NIL : -> S .
+ op S : S -> S .
+ op SPLIT : S S -> S .
+ op TP2 : S S -> S .
+ op TRUE : -> S .
+ vars ys zs1 zs2 x y x1 x2 : S .
+ rl SPLIT(x,NIL) => TP2(NIL,NIL).
+ rl LE(0,y) => TRUE.
+ rl LE(S(x),0) => FALSE.
+ rl LE(S(x),S(y)) => LE(x,y).
+ crl SPLIT(x,CONS(y,ys)) => TP2(zs1,CONS(y,zs2)) if SPLIT(x,ys) => TP2(zs1,zs2) /\ LE(x,y) => TRUE .
+ crl SPLIT(x,CONS(y,ys)) => TP2(CONS(y,zs1),zs2) if SPLIT(x,ys) => TP2(zs1,zs2) /\ LE(x,y) => FALSE .
+endm .
+~(LE(x1,x2) ->* TRUE /\ LE(x1,x2) ->* FALSE)

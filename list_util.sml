@@ -5,10 +5,15 @@
 signature LIST_UTIL = 
 sig 
     (* functions for set *)
+    val elm: 'a list -> 'a option
+    val pair: 'a list -> ('a * 'a) option
     val member: ''a  -> ''a list -> bool
     val add: ''a  -> ''a list -> ''a list
     val union: ''a list * ''a list -> ''a list
     val unions: ''a list list -> ''a list
+    val unionMap: (''a -> ''b list) -> ''a list -> ''b list
+    val isSubset: ''a list * ''a list -> bool
+						       
     val toStringBuilt: ('a -> string) -> (string * string * string) -> 'a list -> string
     val toStringCommaSpaceBrace: ('a -> string) -> 'a list  -> string
     val toStringCommaLnSquare: ('a -> string) -> 'a list -> string
@@ -18,17 +23,20 @@ sig
     val mapAppend: ('a -> 'b list) -> 'a list -> 'b list
     val delete: ''a -> ''a list -> ''a list
     val elimDup: ''a list -> ''a list
+				 
     val combinations: int -> 'a list -> 'a list list
-    val stirlingComb: int -> int -> int list list
-    val combPair: 'a list -> 'a list  list
-    val pairUp: 'a list -> ('a * 'a) list
+    val allCombinations: 'a list list -> 'a list list
     val transpose: ''a list list -> ''a list list
-    val decimalToBase: int -> int -> int -> int list
-    val baseToDecimal: int list -> int -> int
 end
 
 structure ListUtil : LIST_UTIL =
-struct 
+struct
+
+fun elm [a] = SOME a 
+  | elm _ = NONE
+
+fun pair [x, y] = SOME (x, y)
+  | pair _ = NONE
 
 fun member x ys = List.exists (fn y => x = y) ys
 
@@ -40,6 +48,11 @@ fun union ([],ys) = ys
 
 fun unions [] = []
   | unions (xs::xss) = union (xs,unions xss)
+
+fun unionMap f [] = []
+  | unionMap f (x::xs) = union (f x, unionMap f xs)
+
+fun isSubset (xs, ys) = List.all (fn x => member x ys) xs
 
 fun toStringBuilt prElm (start,sep,stop) xs =
     let fun toStringSub [] = ""
@@ -84,59 +97,20 @@ fun delete e xs =
 fun elimDup [] = []
   | elimDup (x::xs) = x::(elimDup(delete x xs))
 
-fun combinations k dom = if k = 0 then [[]]
-			 else let val smaller = combinations (k-1) dom
-			      in List.concat (List.map (fn comb => List.map (fn c => comb @ [c]) dom) smaller)
+fun combinations k xs = if k = 0 then [[]]
+			 else let val smaller = combinations (k-1) xs
+			      in List.concat (List.map (fn comb => List.map (fn c => comb @ [c]) xs) smaller)
 			      end
 
-fun stirlingComb r n =
-    let fun extend used current =
-	    if length current = r
-	    then [rev current]
-	    else
-		let val nextConst = length used
-		    fun try i = if i < nextConst then extend used (i :: current)
-				else if i = nextConst andalso nextConst < n then extend (nextConst :: used) (i :: current)
-				else []
-		    fun loop i = if i > nextConst then []
-				 else try i @ loop (i + 1)
-		in loop 0
-		end
-    in extend [] []
-    end
-	
-fun combPair [] = []
-  | combPair (x::xs) =
-    let val pairs = List.map (fn y => [x,y]) xs
-    in pairs @ combPair xs
-    end
-
-fun pairUp [] = []
-  | pairUp [_] = raise Fail "Error: List has an odd number of elements"
-  | pairUp (x::y::rest) = (x, y) :: pairUp rest
-
+fun allCombinations [] = [[]]
+  | allCombinations (xs::rest) =
+      let val restComb = allCombinations rest
+      in List.concat (List.map (fn x => List.map (fn ys => x::ys) restComb) xs)
+      end
+				  
 fun transpose [] = []
   | transpose rows = if List.exists (fn row => null row) rows
 		     then []
 		     else List.map List.hd rows::transpose (List.map List.tl rows)
-
-fun decimalToBase num base k =
-    let fun toBase (0, base) = [0]
-	  | toBase (number, base) =
-	    let fun loop (0, acc) = acc
-		  | loop (n, acc) = loop (n div base, (n mod base)::acc)
-	    in loop (number, [])
-	    end
-	val baseList = toBase (num,base)
-	val paddingLength = if k > 0 then k - length baseList else 0
-	val padding = List.tabulate (paddingLength,fn _ => 0)
-    in padding @ baseList
-    end
-
-fun baseToDecimal xs base =
-    let fun main [] base sum = sum
-	  | main (x::xs) base sum = main xs base (sum * base + x)
-    in main xs base 0
-    end 
 
 end
