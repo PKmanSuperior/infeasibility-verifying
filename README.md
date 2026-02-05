@@ -54,6 +54,7 @@ CTRSと実行不能性の検証対象となる式を入力として受け取り,
 (rule (f x) x)
 (rule (f a) b)
 (infeasible? (= a x) (= b x))
+```
 
 ---
 
