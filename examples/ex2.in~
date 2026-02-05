@@ -1,0 +1,7 @@
+(fun 0 0)
+(fun s 1)
+(fun sub 2)
+(rule (sub 0 x) 0)
+(rule (sub x 0) x)
+(rule (sub (s x) (s y)) (sub x y))
+(infeasible? (= (sub 0 (s x)) (s x))) (= (sub (s y) 0) 0))

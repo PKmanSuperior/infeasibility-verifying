@@ -1,0 +1,7 @@
+(fun 0 0)
+(fun s 1)
+(fun f 3)
+(rule (f 0 (s x) y) y)
+(rule (f x 0 y) 0)
+(rule (f (s x) (s y) (s z)) (f x y z))
+(infeasible? (= (f x x x) (s x)))

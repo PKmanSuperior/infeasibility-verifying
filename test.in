@@ -1,8 +1,0 @@
-(format CTRS oriented :problem infeasibility)
-(fun 0)
-(fun s 1)
-(fun - 2)
-(rule (- 0 x) 0)
-(rule (- x 0) x)
-(rule (- (s x) (s y)) (- x y))
-(infeasible? (= (- x x) (s x)) (= ((s y) y) (0)))
